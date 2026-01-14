@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="icon" href="./kimsze_sharp16.ico?v=20260111a" sizes="any">
+<link rel="shortcut icon" href="./kimsze_sharp16.ico?v=20260111a">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>P1 More / Fewer — Auto-Fit Blocks + Bottom-Right Buttons</title>
+
+  <style>
+    :root{
+      --bg:#ffffff;
+      --ink:#0f172a;
+      --muted:#64748b;
+      --line:#e2e8f0;
+
+      --radius:22px;
+      --shadow:0 14px 40px rgba(2,6,23,.10);
+
+      --drawerW:min(420px, 92vw);
+
+      /* stage base size (auto-scaled; no scrolling) */
+      --baseW: 980;
+      --baseH: 690;
+
+      /* ✅ smaller fonts to free space (MORE SPACE FOR BLOCKS) */
+      --S-title: 18px;
+      --S-line: 15px;
+      --S-small: 12px;
+
+      /* DEFAULTS (will be auto-overridden by JS) */
+      --cubeS: 20px;
+      --rodW: 14px;
+      --rodH: 74px;
+      --gap: 10px;
+
+      /* ones grid columns (auto-changed by JS) */
+      --onesCols: 5;
+
+      /* left (red) palette */
+      --L1:#ff5a5a; --L2:#b91c1c; --L3:#ef4444;
+
+      /* right (blue) palette */
+      --R1:#60a5fa; --R2:#1d4ed8; --R3:#3b82f6;
+
+      /* greyed difference */
+      --G1:#cbd5e1; --G2:#64748b; --G3:#94a3b8;
+
+      --input:#e8f6df;
+      --inputLine:#9bbf87;
+
+      --panelGreen:#eaf6e6;
+    }
+
+    *{box-sizing:border-box}
+    html, body{
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      overscroll-behavior:none;
+      background:var(--bg);
+      color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", sans-serif;
+    }
+
+    body.drawer-open .viewport{ padding-right: calc(var(--drawerW) + 10px); }
+
+    .viewport{
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      padding: 10px;
+    }
+    .stage{
+      width: calc(var(--baseW) * 1px);
+      height: calc(var(--baseH) * 1px);
+      transform-origin: top left;
+      background:#fff;
+      border-radius: 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    /* ✅ credit moved to top-right */
+    .creditTop{
+      position:absolute;
+      right: 12px;
+      top: 10px;
+      z-index: 40;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(2,6,23,.08);
+      padding: 5px 9px;
+      border-radius: 999px;
+      box-shadow: 0 10px 18px rgba(2,6,23,.06);
+      pointer-events:none;
+      backdrop-filter: blur(4px);
+    }
+
+    .wrap{
+      width:100%; height:100%;
+      padding: 8px 10px 8px;
+      display:flex; flex-direction:column;
+      gap: 8px; /* ✅ tighter */
+    }
+
+    .topbar{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 10px;
+      padding-right: 210px; /* space so top-right credit never overlaps */
+    }
+    .titleText{
+      font-size: var(--S-title);
+      font-weight: 900;
+      line-height: 1.05;
+      margin:0;
+      letter-spacing:.2px;
+    }
+    .settingsBtn{
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--ink);
+      border-radius:999px;
+      padding:7px 11px;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: 0 8px 18px rgba(2,6,23,.06);
+      white-space:nowrap;
+      height: 34px;       /* ✅ smaller */
+      align-self:flex-start;
+      font-size: 12px;    /* ✅ smaller */
+    }
+    .settingsBtn:active{ transform: translateY(1px); }
+
+    .problem{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      background:#fff;
+      padding: 7px 10px 7px;
+      display:flex;
+      flex-direction:column;
+      gap: 5px;
+    }
+    .pLine{
+      font-size: var(--S-line);
+      font-weight: 900;
+      line-height: 1.12;
+      margin:0;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap: 7px;
+    }
+    .pLine .blankN{
+      width: 78px;       /* ✅ smaller */
+      height: 34px;      /* ✅ smaller */
+      border-radius: 14px;
+      border: 3px solid var(--inputLine);
+      background: var(--input);
+      font-size: 15px;   /* ✅ smaller */
+      font-weight: 900;
+      text-align:center;
+      outline:none;
+    }
+    .pLine .blankN.left{ border-color: rgba(185,28,28,.40); }
+    .pLine .blankN.right{ border-color: rgba(29,78,216,.40); }
+
+    .panel{
+      flex: 1;
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      background: var(--panelGreen);
+      padding: 10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    /* ensure Tens/Ones card always visible */
+    .sideBox{
+      border-radius: 18px;
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(2,6,23,.10);
+      padding: 10px;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      min-height: 0;
+      overflow:hidden;
+    }
+
+    .blockArea{
+      flex: 1 1 auto;
+      min-height: 0;
+      border-radius: 16px;
+      background: rgba(255,255,255,.62);
+      border: 1px solid rgba(2,6,23,.08);
+      padding: 8px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-items:stretch;
+      overflow:hidden;
+    }
+
+    .tensArea, .onesArea{
+      border-radius: 14px;
+      background: rgba(255,255,255,.80);
+      border: 1px solid rgba(2,6,23,.08);
+      padding: 8px;
+      overflow:hidden;
+    }
+
+    .tensArea{
+      display:flex;
+      gap: var(--gap);
+      flex-wrap: wrap;
+      align-content:flex-start;
+      justify-content:flex-start;
+      padding-top: 8px; /* ✅ shift up a bit */
+    }
+
+    /* ✅ ones: show as 5+4 for 9 etc (cols=5), and keep visible */
+    .onesArea{
+      display:grid;
+      grid-template-columns: repeat(var(--onesCols), var(--cubeS));
+      grid-auto-rows: var(--cubeS);
+      gap: var(--gap);
+      align-content:end;
+      justify-content:start;   /* ✅ use space better than far-right */
+      padding-top: 8px;        /* ✅ shift up a bit */
+    }
+
+    .pvCard{
+      margin-top: 6px;
+      border-radius: 18px;
+      overflow:hidden;
+      border:2px solid #cbd5e1;
+      background:#fff;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      flex: 0 0 auto;
+    }
+    .pvCell{
+      padding: 6px 10px 7px;
+      display:flex;
+      flex-direction:column;
+      gap: 2px;
+      align-items:center;
+      justify-content:center;
+      min-height: 70px; /* ✅ shorter so it never hides */
+    }
+    .pvCell.tens{ background: linear-gradient(180deg, #ffd08a 0%, #ffedd5 100%); }
+    .pvCell.ones{ background: linear-gradient(180deg, #9bdcff 0%, #e0f2fe 100%); }
+
+    .pvLabel{
+      font-weight: 900;
+      font-size: 18px; /* ✅ smaller */
+      letter-spacing:.2px;
+      line-height: 1.05;
+    }
+    .pvValue{
+      width: 104px;  /* ✅ smaller */
+      height: 42px;  /* ✅ smaller */
+      border-radius: 16px;
+      border: 3px solid var(--inputLine);
+      background: var(--input);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .pvInput{
+      width:100%;
+      height:100%;
+      border:0;
+      outline:none;
+      background:transparent;
+      text-align:center;
+      font-size: 20px; /* ✅ smaller */
+      font-weight: 900;
+    }
+    .pvValue.good{ border-color:#16a34a; box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
+    .pvValue.bad{ border-color:#ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.14); }
+
+    .answers{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 8px 10px 9px; /* ✅ tighter */
+      background:#fff;
+      box-shadow: var(--shadow);
+    }
+
+    .eqCard{
+      border-radius: 18px;
+      background:#dff2f6;
+      padding: 7px 10px; /* ✅ tighter */
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 10px;
+    }
+    .eqSym{
+      font-size: 26px; /* ✅ smaller */
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .blank{
+      width: 84px;   /* ✅ smaller */
+      height: 46px;  /* ✅ smaller */
+      border-radius: 16px;
+      border: 3px solid var(--inputLine);
+      background: var(--input);
+      font-size: 24px; /* ✅ smaller */
+      font-weight: 900;
+      text-align:center;
+      outline:none;
+    }
+    .blank.small{ width: 74px; height: 46px; }
+
+    .blank.good{ border-color:#16a34a; box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
+    .blank.bad{ border-color:#ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.14); }
+
+    .sentence{
+      margin-top: 7px;
+      font-size: 15px; /* ✅ smaller */
+      font-weight: 900;
+      line-height: 1.12;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap: 8px;
+      justify-content:center;
+      text-align:center;
+    }
+
+    .rodSvg{
+      width: var(--rodW);
+      height: var(--rodH);
+      display:block;
+      user-select:none;
+      filter: drop-shadow(0 10px 16px rgba(2,6,23,.18));
+      outline: 1px solid rgba(2,6,23,.10);
+      border-radius: 6px;
+    }
+    .cubeSvg{
+      width: var(--cubeS);
+      height: var(--cubeS);
+      display:block;
+      user-select:none;
+      filter: drop-shadow(0 10px 16px rgba(2,6,23,.16));
+    }
+
+    .leftColor{ --c1: var(--L1); --c2: var(--L2); --c3: var(--L3); }
+    .rightColor{ --c1: var(--R1); --c2: var(--R2); --c3: var(--R3); }
+    .diffGrey{
+      --c1: var(--G1) !important; --c2: var(--G2) !important; --c3: var(--G3) !important;
+      filter: grayscale(.2) brightness(1.05) drop-shadow(0 6px 10px rgba(2,6,23,.08));
+    }
+
+    /* slower regroup animation */
+    .rodBorrow{
+      position:relative;
+      z-index: 3;
+      transition: transform .85s ease, opacity .85s ease;
+      will-change: transform, opacity;
+    }
+    .cubeSpawn{
+      transform: scale(.2);
+      opacity: 0;
+      transition: transform .35s ease, opacity .35s ease;
+      will-change: transform, opacity;
+    }
+    .cubeSpawn.in{
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    .dock{
+      position:absolute;
+      right: 12px;
+      bottom: 12px;
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+      z-index: 25;
+      align-items:flex-end;
+      pointer-events: none;
+    }
+    .dock .dockRow{
+      display:flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    .btn{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius: 14px;
+      padding: 8px 11px; /* ✅ smaller */
+      font-weight: 900;
+      cursor:pointer;
+      box-shadow: 0 10px 20px rgba(2,6,23,.08);
+      user-select:none;
+      white-space:nowrap;
+      font-size: 13px; /* ✅ smaller */
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{
+      border-color: transparent;
+      background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+      color:#fff;
+    }
+    .dockMsg{
+      pointer-events:none;
+      font-weight: 900;
+      color: var(--muted);
+      font-size: 10px;   /* ✅ smaller */
+      line-height: 1.12;
+      text-align:right;
+      min-height: 13px;
+      max-width: 360px;
+      padding-right: 2px;
+    }
+
+    .drawerOverlay{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,0);
+      display:none;
+      z-index: 50;
+    }
+    .drawer{
+      position:fixed; top:0; right:0; height:100%;
+      width: var(--drawerW);
+      background:#fff;
+      border-left:1px solid var(--line);
+      box-shadow: -20px 0 60px rgba(2,6,23,.25);
+      transform: translateX(100%);
+      transition: transform .22s ease;
+      z-index: 60;
+      display:flex;
+      flex-direction:column;
+    }
+    .drawerOverlay.show{ display:block; }
+    .drawer.show{ transform: translateX(0); }
+
+    .drawerTop{
+      position:sticky; top:0;
+      background:#fff;
+      border-bottom:1px solid var(--line);
+      padding: 12px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      z-index:2;
+    }
+    .drawerTop h2{ margin:0; font-size: 16px; letter-spacing:.2px; }
+    .closeBtn{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-weight: 900;
+      cursor:pointer;
+    }
+    .drawerBody{ padding: 14px; overflow:auto; }
+
+    .field{
+      border:1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background:#fafafa;
+    }
+    .field label{ display:block; font-weight: 900; margin-bottom: 6px; }
+    .help{ color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 6px; }
+    .numRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .setNum{
+      width: 140px;
+      height: 46px;
+      border-radius: 12px;
+      border:1px solid #cbd5e1;
+      padding: 0 10px;
+      font-size: 16px;
+      font-weight: 800;
+      outline:none;
+      background:#fff;
+    }
+    .toggleRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 10px 0 2px;
+    }
+    .toggleRow span{ font-weight: 900; }
+    .switch{
+      appearance:none;
+      width: 54px;
+      height: 30px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      border:1px solid #cbd5e1;
+      position:relative;
+      cursor:pointer;
+      outline:none;
+    }
+    .switch::after{
+      content:"";
+      width: 24px; height: 24px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow: 0 8px 18px rgba(2,6,23,.18);
+      position:absolute;
+      left: 3px; top: 2px;
+      transition: transform .18s ease;
+    }
+    .switch:checked{ background: #22c55e; border-color:#16a34a; }
+    .switch:checked::after{ transform: translateX(24px); }
+  </style>
+</head>
+
+<body>
+  <template id="tplCube">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56.5 64" aria-hidden="true" focusable="false">
+      <defs>
+        <style>
+          .cls-1 { fill: var(--c1); }
+          .cls-2 { fill: var(--c2); }
+          .cls-3 { fill: var(--c3); }
+          .cls-4 { fill: #fff; }
+        </style>
+      </defs>
+      <polygon class="cls-2" points="0 16 0 48 28.25 64 28.25 32 0 16"/>
+      <polygon class="cls-3" points="28.25 0 0 16 28.25 32 56.5 16 28.25 0"/>
+      <polygon class="cls-1" points="56.5 16 28.25 32 28.25 64 56.5 48 56.5 16"/>
+      <polygon class="cls-4" points="28.25 33.15 1 17.73 1.5 16.86 28.25 32 55 16.86 55.5 17.73 28.25 33.15"/>
+    </svg>
+  </template>
+
+  <template id="tplRod">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 39.18 206" aria-hidden="true" focusable="false">
+      <defs>
+        <style>
+          .cls-1 { fill: var(--c1); }
+          .cls-2 { fill: var(--c2); }
+          .cls-3 { fill: var(--c3); }
+          .cls-4 { fill: #fff; }
+        </style>
+      </defs>
+      <polygon class="cls-2" points="0 10.3 0 195.7 19.59 206 19.59 20.6 0 10.3"/>
+      <polygon class="cls-3" points="19.59 0 0 10.3 19.59 20.6 39.18 10.3 19.59 0"/>
+      <polygon class="cls-1" points="39.18 10.3 19.59 20.6 19.59 206 39.18 195.7 39.18 10.3"/>
+      <g>
+        <polygon class="cls-4" points="19.59 21.74 1 11.95 1.46 11.06 19.59 20.6 37.72 11.06 38.18 11.95 19.59 21.74"/>
+        <polygon class="cls-4" points="19.59 40.24 1 30.45 1.46 29.56 19.59 39.1 37.72 29.56 38.18 30.45 19.59 40.24"/>
+        <polygon class="cls-4" points="19.59 58.74 1 48.95 1.46 48.06 19.59 57.6 37.72 48.06 38.18 48.95 19.59 58.74"/>
+        <polygon class="cls-4" points="19.59 77.24 1 67.45 1.46 66.56 19.59 76.1 37.72 66.56 38.18 67.45 19.59 77.24"/>
+        <polygon class="cls-4" points="19.59 95.74 1 85.95 1.46 85.06 19.59 94.6 37.72 85.06 38.18 85.95 19.59 95.74"/>
+        <polygon class="cls-4" points="19.59 114.24 1 104.45 1.46 103.56 19.59 113.1 37.72 103.56 38.18 104.45 19.59 114.24"/>
+        <polygon class="cls-4" points="19.59 132.74 1 122.95 1.46 122.06 19.59 131.6 37.72 122.06 38.18 122.95 19.59 132.74"/>
+        <polygon class="cls-4" points="19.59 151.24 1 141.45 1.46 140.56 19.59 150.1 37.72 140.56 38.18 141.45 19.59 151.24"/>
+        <polygon class="cls-4" points="19.59 169.74 1 159.95 1.46 159.06 19.59 168.6 37.72 159.06 38.18 159.95 19.59 169.74"/>
+        <polygon class="cls-4" points="19.59 188.24 1 178.45 1.46 177.56 19.59 187.1 37.72 177.56 38.18 178.45 19.59 188.24"/>
+      </g>
+    </svg>
+  </template>
+
+  <div class="viewport">
+    <div class="stage" id="stage">
+      <div class="creditTop">Designed by Lim Kim Sze © 2026</div>
+
+      <div class="wrap">
+        <div class="topbar">
+          <h1 class="titleText">Let’s Try!</h1>
+          <button class="settingsBtn" id="openSettings">⚙️ Teacher Settings</button>
+        </div>
+
+        <div class="problem" aria-live="polite">
+          <p class="pLine">
+            There are
+            <input class="blankN left" id="qRed" inputmode="numeric" maxlength="2" aria-label="Red cubes number">
+            red cubes.
+          </p>
+          <p class="pLine">
+            There are
+            <input class="blankN right" id="qBlue" inputmode="numeric" maxlength="2" aria-label="Blue cubes number">
+            blue cubes.
+          </p>
+          <p class="pLine" id="qLine">How many fewer blue cubes than red cubes are there?</p>
+        </div>
+
+        <div class="panel">
+          <div class="sideBox">
+            <div class="blockArea">
+              <div class="tensArea leftColor" id="L_tens"></div>
+              <div class="onesArea leftColor" id="L_ones"></div>
+            </div>
+            <div class="pvCard" aria-label="Red tens and ones">
+              <div class="pvCell tens">
+                <div class="pvLabel">Tens</div>
+                <div class="pvValue" id="L_tVal"><input class="pvInput" id="L_tIn" inputmode="numeric" maxlength="1" aria-label="Red tens"></div>
+              </div>
+              <div class="pvCell ones">
+                <div class="pvLabel">Ones</div>
+                <div class="pvValue" id="L_oVal"><input class="pvInput" id="L_oIn" inputmode="numeric" maxlength="1" aria-label="Red ones"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sideBox">
+            <div class="blockArea">
+              <div class="tensArea rightColor" id="R_tens"></div>
+              <div class="onesArea rightColor" id="R_ones"></div>
+            </div>
+            <div class="pvCard" aria-label="Blue tens and ones">
+              <div class="pvCell tens">
+                <div class="pvLabel">Tens</div>
+                <div class="pvValue" id="R_tVal"><input class="pvInput" id="R_tIn" inputmode="numeric" maxlength="1" aria-label="Blue tens"></div>
+              </div>
+              <div class="pvCell ones">
+                <div class="pvLabel">Ones</div>
+                <div class="pvValue" id="R_oVal"><input class="pvInput" id="R_oIn" inputmode="numeric" maxlength="1" aria-label="Blue ones"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="answers">
+          <div class="eqCard" aria-label="Equation">
+            <input class="blank" id="eqA" inputmode="numeric" maxlength="2" aria-label="First number">
+            <span class="eqSym">−</span>
+            <input class="blank" id="eqB" inputmode="numeric" maxlength="2" aria-label="Second number">
+            <span class="eqSym">=</span>
+            <input class="blank" id="eqC" inputmode="numeric" maxlength="2" aria-label="Answer">
+          </div>
+
+          <div class="sentence" id="sLine">
+            There are <input class="blank small" id="ans" inputmode="numeric" maxlength="2" aria-label="Final answer">
+            fewer blue cubes than red cubes.
+          </div>
+        </div>
+      </div>
+
+      <div class="dock" aria-label="Controls">
+        <div class="dockMsg" id="msg"></div>
+        <div class="dockRow">
+          <button class="btn" id="toggleQBtn">Question: FEWER</button>
+          <button class="btn" id="randomBtnMain">Random</button>
+        </div>
+        <div class="dockRow">
+          <button class="btn" id="clearBtn">Clear</button>
+          <button class="btn primary" id="checkBtn">Check</button>
+        </div>
+      </div>
+
+      <button class="settingsBtn" id="openSettings2" style="position:absolute; left:12px; bottom:12px; z-index:30;">
+        ⚙️ Settings
+      </button>
+    </div>
+  </div>
+
+  <div class="drawerOverlay" id="overlay" tabindex="-1" aria-hidden="true"></div>
+  <aside class="drawer" id="drawer" aria-label="Teacher Settings Panel">
+    <div class="drawerTop">
+      <h2>Teacher Settings</h2>
+      <button class="closeBtn" id="closeSettings">Close ✕</button>
+    </div>
+    <div class="drawerBody">
+      <div class="field">
+        <label>Set the two numbers (1–99)</label>
+        <div class="numRow">
+          <input class="setNum" id="setLeft" type="number" min="1" max="99" step="1" value="73">
+          <input class="setNum" id="setRight" type="number" min="1" max="99" step="1" value="64">
+          <button class="btn" id="applyBtn">Apply</button>
+          <button class="btn" id="randomBtn">Random</button>
+        </div>
+        <div class="help">Left = red, Right = blue. (If equal, right is nudged.)</div>
+      </div>
+
+      <div class="field">
+        <div class="toggleRow">
+          <span>Question type: MORE (else FEWER)</span>
+          <input class="switch" id="qMore" type="checkbox">
+        </div>
+        <div class="help">Questions auto-swap colours so they always make sense.</div>
+      </div>
+
+      <div class="field">
+        <div class="toggleRow">
+          <span>Show: Ones only (else Tens + Ones)</span>
+          <input class="switch" id="onesOnly" type="checkbox">
+        </div>
+        <div class="help">Auto-fit keeps ALL blocks visible in both modes.</div>
+      </div>
+
+      <div class="field">
+        <label>Quick reset (teacher)</label>
+        <button class="btn" id="teacherClear">Clear pupil inputs</button>
+      </div>
+
+      <div class="field">
+        <label>Note</label>
+        <div class="help">
+          Regroup animation is slower and plays a swoosh on movement.
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    const BASE_W = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--baseW')) || 980;
+    const BASE_H = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--baseH')) || 690;
+    const stage = document.getElementById('stage');
+
+    const overlay = document.getElementById('overlay');
+    const drawer = document.getElementById('drawer');
+
+    function fitStage(){
+      const pad = 20;
+      const vw = Math.max(320, window.innerWidth - pad);
+      const vh = Math.max(320, window.innerHeight - pad);
+
+      const drawerOpen = document.body.classList.contains('drawer-open');
+      const dw = drawerOpen ? drawer.getBoundingClientRect().width : 0;
+      const availW = Math.max(320, vw - dw);
+
+      const s = Math.min(availW / BASE_W, vh / BASE_H);
+      stage.style.transform = `scale(${s})`;
+    }
+    window.addEventListener('resize', fitStage);
+    window.addEventListener('orientationchange', fitStage);
+
+    const tplCube = document.getElementById('tplCube');
+    const tplRod  = document.getElementById('tplRod');
+
+    const setLeft = document.getElementById('setLeft');
+    const setRight = document.getElementById('setRight');
+
+    const L_tens = document.getElementById('L_tens');
+    const L_ones = document.getElementById('L_ones');
+    const R_tens = document.getElementById('R_tens');
+    const R_ones = document.getElementById('R_ones');
+
+    const L_tVal = document.getElementById('L_tVal');
+    const L_oVal = document.getElementById('L_oVal');
+    const R_tVal = document.getElementById('R_tVal');
+    const R_oVal = document.getElementById('R_oVal');
+
+    const L_tIn = document.getElementById('L_tIn');
+    const L_oIn = document.getElementById('L_oIn');
+    const R_tIn = document.getElementById('R_tIn');
+    const R_oIn = document.getElementById('R_oIn');
+
+    const qRed  = document.getElementById('qRed');
+    const qBlue = document.getElementById('qBlue');
+    const qLine = document.getElementById('qLine');
+    const sLine = document.getElementById('sLine');
+
+    const eqA = document.getElementById('eqA');
+    const eqB = document.getElementById('eqB');
+    const eqC = document.getElementById('eqC');
+
+    const msg = document.getElementById('msg');
+
+    const applyBtn = document.getElementById('applyBtn');
+    const randomBtn = document.getElementById('randomBtn');
+    const randomBtnMain = document.getElementById('randomBtnMain');
+    const checkBtn = document.getElementById('checkBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const toggleQBtn = document.getElementById('toggleQBtn');
+    const teacherClear = document.getElementById('teacherClear');
+
+    const qMore = document.getElementById('qMore');
+    const onesOnly = document.getElementById('onesOnly');
+
+    const openSettings = document.getElementById('openSettings');
+    const openSettings2 = document.getElementById('openSettings2');
+    const closeSettings = document.getElementById('closeSettings');
+
+    let leftNum = 73;
+    let rightNum = 64;
+    let questionMode = 'fewer';
+    let showOnesOnly = false;
+    let hasChecked = false;
+    let animBusy = false;
+
+    const ROD_ASPECT = 206.0 / 39.18;
+    const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
+
+    // force blocks smaller even when there is space
+    const FIT_SHRINK = 0.85;
+    const MAX_CUBE = 20;
+    const MAX_ROD_W = 16;
+
+    /* ✅ LOUDER swoosh sound (WebAudio) */
+    let _ac = null;
+    function audioCtx(){
+      if (_ac) return _ac;
+      _ac = new (window.AudioContext || window.webkitAudioContext)();
+      return _ac;
+    }
+    function whoosh({dur=0.38, from=900, to=160, vol=0.30}={}){ // ✅ louder default
+      try{
+        const ac = audioCtx();
+        if (ac.state === 'suspended') ac.resume();
+        const t0 = ac.currentTime + 0.01;
+
+        // noise source
+        const bufferSize = Math.floor(ac.sampleRate * dur);
+        const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i=0; i<bufferSize; i++){
+          data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+        }
+        const noise = ac.createBufferSource();
+        noise.buffer = buffer;
+
+        // filter sweep
+        const biq = ac.createBiquadFilter();
+        biq.type = 'lowpass';
+        biq.frequency.setValueAtTime(from, t0);
+        biq.frequency.exponentialRampToValueAtTime(Math.max(40,to), t0 + dur);
+
+        // gain envelope (✅ louder)
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(vol, t0 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+        noise.connect(biq).connect(g).connect(ac.destination);
+        noise.start(t0);
+        noise.stop(t0 + dur + 0.02);
+      }catch(e){
+        // ignore (audio may be blocked in some embeds)
+      }
+    }
+
+    function clamp1to99(n){
+      n = Number(n);
+      if (!Number.isFinite(n)) return 1;
+      n = Math.round(n);
+      return Math.max(1, Math.min(99, n));
+    }
+    function splitTensOnes(n){ return { tens: Math.floor(n/10), ones: n%10 }; }
+    function sanitizeDigits(val, maxLen){
+      const s = String(val ?? '').trim();
+      if (!s) return '';
+      return s.replace(/[^\d]/g,'').slice(0, maxLen);
+    }
+
+    function markBox(box, ok){
+      box.classList.remove('good','bad');
+      box.classList.add(ok ? 'good' : 'bad');
+    }
+    function markInp(inp, ok){
+      inp.classList.remove('good','bad');
+      inp.classList.add(ok ? 'good' : 'bad');
+    }
+    function clearMarks(){
+      [L_tVal,L_oVal,R_tVal,R_oVal].forEach(b=>b.classList.remove('good','bad'));
+      [qRed,qBlue,eqA,eqB,eqC,document.getElementById('ans')].forEach(i=> i && i.classList.remove('good','bad'));
+      msg.textContent = '';
+    }
+
+    function cloneCube(){
+      const frag = tplCube.content.cloneNode(true);
+      const svg = frag.querySelector('svg');
+      svg.classList.add('cubeSvg');
+      svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+      return svg;
+    }
+    function cloneRod(){
+      const frag = tplRod.content.cloneNode(true);
+      const svg = frag.querySelector('svg');
+      svg.classList.add('rodSvg');
+      svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+      return svg;
+    }
+
+    function ensureNotEqual(){
+      if (leftNum === rightNum){
+        rightNum = (rightNum === 99) ? 98 : rightNum + 1;
+        setRight.value = rightNum;
+      }
+    }
+
+    function setQuestionText(){
+      const red = leftNum;
+      const blue = rightNum;
+
+      if (questionMode === 'fewer'){
+        const smallerIsBlue = blue < red;
+        const smallWord = smallerIsBlue ? 'blue' : 'red';
+        const bigWord   = smallerIsBlue ? 'red'  : 'blue';
+        qLine.textContent = `How many fewer ${smallWord} cubes than ${bigWord} cubes are there?`;
+
+        const diff = Math.abs(red-blue);
+        const cubeWord = (diff === 1) ? 'cube' : 'cubes';
+        sLine.innerHTML = `
+          There are <input class="blank small" id="ans" inputmode="numeric" maxlength="2" aria-label="Final answer">
+          fewer ${smallWord} ${cubeWord} than ${bigWord} ${cubeWord}.
+        `;
+        toggleQBtn.textContent = 'Question: FEWER';
+        qMore.checked = false;
+      } else {
+        const biggerIsBlue = blue > red;
+        const bigWord   = biggerIsBlue ? 'blue' : 'red';
+        const smallWord = biggerIsBlue ? 'red'  : 'blue';
+        qLine.textContent = `How many more ${bigWord} cubes than ${smallWord} cubes are there?`;
+
+        const diff = Math.abs(red-blue);
+        const cubeWord = (diff === 1) ? 'cube' : 'cubes';
+        sLine.innerHTML = `
+          There are <input class="blank small" id="ans" inputmode="numeric" maxlength="2" aria-label="Final answer">
+          more ${bigWord} ${cubeWord} than ${smallWord} ${cubeWord}.
+        `;
+        toggleQBtn.textContent = 'Question: MORE';
+        qMore.checked = true;
+      }
+
+      const newAns = document.getElementById('ans');
+      newAns.addEventListener('input', ()=> {
+        const cleaned = sanitizeDigits(newAns.value, 2);
+        if (newAns.value !== cleaned) newAns.value = cleaned;
+      });
+    }
+
+    function renderSide(n, tensEl, onesEl){
+      tensEl.innerHTML = '';
+      onesEl.innerHTML = '';
+
+      if (showOnesOnly){
+        tensEl.style.display = 'none';
+        for (let i=0; i<n; i++) onesEl.appendChild(cloneCube());
+      } else {
+        tensEl.style.display = 'flex';
+        const {tens, ones} = splitTensOnes(n);
+        for (let i=0; i<tens; i++) tensEl.appendChild(cloneRod());
+        for (let i=0; i<ones; i++) onesEl.appendChild(cloneCube());
+      }
+    }
+
+    function autoFitAll(){
+      const tensBoxes = [L_tens, R_tens].filter(el => el && el.style.display !== 'none');
+      const onesBoxes = [L_ones, R_ones].filter(Boolean);
+
+      const gap = 10;
+
+      let onesCols;
+      if (!showOnesOnly){
+        onesCols = 5; // ✅ 5 per row (so 9 becomes 5+4)
+      } else {
+        const maxN = Math.max(leftNum, rightNum);
+        const approx = Math.ceil(Math.sqrt(maxN));
+        onesCols = Math.max(6, Math.min(11, approx));
+      }
+      document.documentElement.style.setProperty('--onesCols', String(onesCols));
+
+      if (!showOnesOnly && tensBoxes.length){
+        const maxTens = Math.max(splitTensOnes(leftNum).tens, splitTensOnes(rightNum).tens);
+        const rodCols = Math.max(1, Math.min(5, maxTens));
+        const rodRows = Math.max(1, Math.ceil(maxTens / rodCols));
+
+        const minW = Math.min(...tensBoxes.map(b => b.clientWidth));
+        const minH = Math.min(...tensBoxes.map(b => b.clientHeight));
+
+        const wByWidth  = (minW - gap*(rodCols-1)) / rodCols;
+        const wByHeight = ((minH - gap*(rodRows-1)) / rodRows) / ROD_ASPECT;
+
+        let rodW = Math.floor(Math.max(9, Math.min(wByWidth, wByHeight) * FIT_SHRINK));
+        rodW = Math.min(MAX_ROD_W, rodW);
+
+        const rodH = Math.round(rodW * ROD_ASPECT);
+
+        document.documentElement.style.setProperty('--rodW', rodW + 'px');
+        document.documentElement.style.setProperty('--rodH', rodH + 'px');
+        document.documentElement.style.setProperty('--gap', gap + 'px');
+      }
+
+      const maxOnesCount = showOnesOnly
+        ? Math.max(leftNum, rightNum)
+        : Math.max(splitTensOnes(leftNum).ones, splitTensOnes(rightNum).ones);
+
+      const rows = Math.max(1, Math.ceil(maxOnesCount / onesCols));
+
+      const minW1 = Math.min(...onesBoxes.map(b => b.clientWidth));
+      const minH1 = Math.min(...onesBoxes.map(b => b.clientHeight));
+
+      const sByWidth  = (minW1 - gap*(onesCols-1)) / onesCols;
+      const sByHeight = (minH1 - gap*(rows-1)) / rows;
+
+      let cubeS = Math.floor(Math.max(9, Math.min(sByWidth, sByHeight) * FIT_SHRINK));
+      cubeS = Math.min(MAX_CUBE, cubeS);
+
+      document.documentElement.style.setProperty('--cubeS', cubeS + 'px');
+      document.documentElement.style.setProperty('--gap', gap + 'px');
+    }
+
+    function clearInputsOnly(){
+      hasChecked = false;
+      animBusy = false;
+      clearMarks();
+      [qRed,qBlue,eqA,eqB,eqC,L_tIn,L_oIn,R_tIn,R_oIn].forEach(i=> i.value='');
+      const a = document.getElementById('ans'); if (a) a.value='';
+      [...L_ones.children, ...R_ones.children, ...L_tens.children, ...R_tens.children].forEach(el=> el.classList.remove('diffGrey'));
+    }
+
+    function renderAll(){
+      setQuestionText();
+      renderSide(leftNum,  L_tens, L_ones);
+      renderSide(rightNum, R_tens, R_ones);
+
+      requestAnimationFrame(()=> {
+        autoFitAll();
+        renderSide(leftNum,  L_tens, L_ones);
+        renderSide(rightNum, R_tens, R_ones);
+      });
+
+      clearInputsOnly();
+    }
+
+    function validateCounts(){
+      const qr = sanitizeDigits(qRed.value, 2);
+      const qb = sanitizeDigits(qBlue.value, 2);
+      const okR = qr !== '' && Number(qr) === leftNum;
+      const okB = qb !== '' && Number(qb) === rightNum;
+      markInp(qRed, okR);
+      markInp(qBlue, okB);
+
+      const L = splitTensOnes(leftNum);
+      const R = splitTensOnes(rightNum);
+
+      const lt = sanitizeDigits(L_tIn.value, 1);
+      const lo = sanitizeDigits(L_oIn.value, 1);
+      const rt = sanitizeDigits(R_tIn.value, 1);
+      const ro = sanitizeDigits(R_oIn.value, 1);
+
+      const okLT = lt !== '' && Number(lt) === L.tens;
+      const okLO = lo !== '' && Number(lo) === L.ones;
+      const okRT = rt !== '' && Number(rt) === R.tens;
+      const okRO = ro !== '' && Number(ro) === R.ones;
+
+      markBox(L_tVal, okLT);
+      markBox(L_oVal, okLO);
+      markBox(R_tVal, okRT);
+      markBox(R_oVal, okRO);
+
+      return okR && okB && okLT && okLO && okRT && okRO;
+    }
+
+    function expectedEquation(){
+      const big = Math.max(leftNum, rightNum);
+      const small = Math.min(leftNum, rightNum);
+      return { big, small, diff: big-small, bigIsLeft: leftNum > rightNum };
+    }
+
+    function validateEquation(){
+      const {big, small, diff} = expectedEquation();
+      const a = sanitizeDigits(eqA.value, 2);
+      const b = sanitizeDigits(eqB.value, 2);
+      const c = sanitizeDigits(eqC.value, 2);
+      const d = sanitizeDigits((document.getElementById('ans')?.value ?? ''), 2);
+
+      const okA = a !== '' && Number(a) === big;
+      const okB = b !== '' && Number(b) === small;
+      const okC = c !== '' && Number(c) === diff;
+      const okD = d !== '' && Number(d) === diff;
+
+      markInp(eqA, okA);
+      markInp(eqB, okB);
+      markInp(eqC, okC);
+      const ansEl = document.getElementById('ans');
+      if (ansEl) markInp(ansEl, okD);
+
+      return okA && okB && okC && okD;
+    }
+
+    function clearGrey(){
+      [...L_ones.children, ...R_ones.children, ...L_tens.children, ...R_tens.children].forEach(el=> el.classList.remove('diffGrey'));
+    }
+
+    async function animateRegroupThenGrey(){
+      const {diff, bigIsLeft} = expectedEquation();
+      if (diff <= 0) return;
+
+      const tensEl = bigIsLeft ? L_tens : R_tens;
+      const onesEl = bigIsLeft ? L_ones : R_ones;
+
+      if (showOnesOnly){
+        const kids = [...onesEl.children];
+        for (let i=kids.length-1, k=0; i>=0 && k<diff; i--, k++){
+          kids[i].classList.add('diffGrey');
+          await sleep(35);
+        }
+        return;
+      }
+
+      const bigN = bigIsLeft ? leftNum : rightNum;
+      let {tens, ones} = splitTensOnes(bigN);
+
+      while (ones < diff && tens > 0){
+        const rods = [...tensEl.children];
+        const rod = rods[rods.length-1];
+        if (!rod) break;
+
+        rod.classList.add('rodBorrow');
+
+        const r1 = rod.getBoundingClientRect();
+        const r2 = onesEl.getBoundingClientRect();
+        const dx = (r2.left + r2.width*0.75) - (r1.left + r1.width*0.5);
+        const dy = (r2.top + r2.height*0.55) - (r1.top + r1.height*0.6);
+
+        /* ✅ louder swoosh when ten moves */
+        whoosh({dur:0.48, from:1200, to:240, vol:0.34});
+
+        rod.style.transform = `translate(${dx}px, ${dy}px) scale(.85)`;
+        rod.style.opacity = '0.20';
+        await sleep(920);
+
+        rod.remove();
+        tens -= 1;
+
+        /* ✅ louder swoosh when cubes appear */
+        whoosh({dur:0.60, from:950, to:140, vol:0.36});
+
+        for (let i=0; i<10; i++){
+          const c = cloneCube();
+          c.classList.add('cubeSpawn');
+          onesEl.appendChild(c);
+          requestAnimationFrame(()=> c.classList.add('in'));
+          await sleep(65);
+        }
+        ones += 10;
+
+        autoFitAll();
+        await sleep(180);
+      }
+
+      const kids = [...onesEl.children];
+      for (let i=kids.length-1, k=0; i>=0 && k<diff; i--, k++){
+        kids[i].classList.add('diffGrey');
+        await sleep(30);
+      }
+    }
+
+    async function checkAnswers(){
+      if (animBusy) return;
+      clearMarks();
+      clearGrey();
+      hasChecked = true;
+
+      const okCounts = validateCounts();
+      const okEq = validateEquation();
+      const allOk = okCounts && okEq;
+
+      animBusy = true;
+      try{ await animateRegroupThenGrey(); }
+      finally{ animBusy = false; }
+
+      msg.textContent = allOk ? '✅ Well done!' : 'Try again (numbers / tens / ones / subtraction).';
+    }
+
+    function applyNumbers(){
+      leftNum = clamp1to99(setLeft.value);
+      rightNum = clamp1to99(setRight.value);
+      ensureNotEqual();
+      renderAll();
+    }
+
+    function randomizeNumbers(){
+      const a = 1 + Math.floor(Math.random()*99);
+      let b = 1 + Math.floor(Math.random()*99);
+      if (b === a) b = (b === 99) ? 98 : b + 1;
+      setLeft.value = a;
+      setRight.value = b;
+      applyNumbers();
+    }
+
+    function toggleQuestion(){
+      questionMode = (questionMode === 'fewer') ? 'more' : 'fewer';
+      renderAll();
+    }
+
+    [qRed,qBlue,eqA,eqB,eqC].forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        const cleaned = sanitizeDigits(inp.value, 2);
+        if (inp.value !== cleaned) inp.value = cleaned;
+      });
+    });
+    [L_tIn,L_oIn,R_tIn,R_oIn].forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        const cleaned = sanitizeDigits(inp.value, 1);
+        if (inp.value !== cleaned) inp.value = cleaned;
+      });
+    });
+
+    qMore.addEventListener('change', ()=>{
+      questionMode = qMore.checked ? 'more' : 'fewer';
+      renderAll();
+    });
+    onesOnly.addEventListener('change', ()=>{
+      showOnesOnly = onesOnly.checked;
+      renderAll();
+    });
+
+    applyBtn.addEventListener('click', applyNumbers);
+    randomBtn.addEventListener('click', randomizeNumbers);
+    randomBtnMain.addEventListener('click', randomizeNumbers);
+    toggleQBtn.addEventListener('click', toggleQuestion);
+
+    // unlock audio on first user gesture
+    function unlockAudio(){
+      try{
+        const ac = audioCtx();
+        if (ac.state === 'suspended') ac.resume();
+      }catch(e){}
+      window.removeEventListener('pointerdown', unlockAudio, {capture:true});
+    }
+    window.addEventListener('pointerdown', unlockAudio, {capture:true, once:true});
+
+    checkBtn.addEventListener('click', checkAnswers);
+    clearBtn.addEventListener('click', clearInputsOnly);
+    teacherClear.addEventListener('click', clearInputsOnly);
+
+    function openDrawer(){
+      overlay.classList.add('show');
+      drawer.classList.add('show');
+      overlay.setAttribute('aria-hidden','false');
+      document.body.classList.add('drawer-open');
+      fitStage();
+    }
+    function closeDrawer(){
+      overlay.classList.remove('show');
+      drawer.classList.remove('show');
+      overlay.setAttribute('aria-hidden','true');
+      document.body.classList.remove('drawer-open');
+      fitStage();
+    }
+    openSettings.addEventListener('click', openDrawer);
+    openSettings2.addEventListener('click', openDrawer);
+    closeSettings.addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeDrawer(); });
+
+    window.addEventListener('resize', ()=> requestAnimationFrame(()=> autoFitAll()));
+
+    fitStage();
+    renderAll();
+  </script>
+<script src="https://cdn.counter.dev/script.js" data-id="825e93b6-ce99-40ef-8bcc-125f13297433" data-utcoffset="8"></script>
+</body>
+</html>
