@@ -5,7 +5,7 @@
 <link rel="shortcut icon" href="./kimsze_sharp16.ico?v=20260111a">
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>P1 More / Fewer — Auto-Fit Blocks + Bottom-Right Buttons</title>
+  <title>P1 More / Fewer — Blocks + Reveal Options</title>
 
   <style>
     :root{
@@ -30,8 +30,8 @@
 
       /* DEFAULTS (will be auto-overridden by JS) */
       --cubeS: 20px;
-      --rodW: 14px;
-      --rodH: 74px;
+      --rodW: 78px;
+      --rodH: 35px;
       --gap: 10px;
 
       /* ones grid columns (auto-changed by JS) */
@@ -168,6 +168,11 @@
     }
     .pLine .blankN.left{ border-color: rgba(185,28,28,.40); }
     .pLine .blankN.right{ border-color: rgba(29,78,216,.40); }
+    .blankN.answerShown, .pvInput.answerShown{
+      color:#0f172a;
+      background: rgba(254,243,199,.55);
+    }
+    .blankN.answerShown{ border-color:#f59e0b; }
 
     .panel{
       flex: 1;
@@ -218,9 +223,10 @@
     }
 
     .tensArea{
-      display:flex;
+      display:grid;
+      grid-template-columns: repeat(var(--rodCols), var(--rodW));
+      grid-auto-rows: var(--rodH);
       gap: var(--gap);
-      flex-wrap: wrap;
       align-content:flex-start;
       justify-content:flex-start;
       padding-top: 8px; /* ✅ shift up a bit */
@@ -232,10 +238,15 @@
       grid-template-columns: repeat(var(--onesCols), var(--cubeS));
       grid-auto-rows: var(--cubeS);
       gap: var(--gap);
-      align-content:end;
+      align-content:start;
       justify-content:start;   /* ✅ use space better than far-right */
       padding-top: 8px;        /* ✅ shift up a bit */
+      overflow:auto;           /* ✅ after regrouping, extra ones can be scrolled instead of spilling out */
+      scroll-behavior:smooth;
     }
+    .onesArea::-webkit-scrollbar{ width: 9px; height: 9px; }
+    .onesArea::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:999px; }
+    .onesArea::-webkit-scrollbar-track{ background:rgba(226,232,240,.45); border-radius:999px; }
 
     .pvCard{
       margin-top: 6px;
@@ -246,6 +257,10 @@
       display:grid;
       grid-template-columns: 1fr 1fr;
       flex: 0 0 auto;
+    }
+
+    .isHidden{
+      display:none !important;
     }
     .pvCell{
       padding: 6px 10px 7px;
@@ -287,6 +302,7 @@
     }
     .pvValue.good{ border-color:#16a34a; box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
     .pvValue.bad{ border-color:#ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.14); }
+    .pvValue.answerShown{ border-color:#f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.14); }
 
     .answers{
       border:1px solid var(--line);
@@ -365,21 +381,46 @@
     }
 
     /* slower regroup animation */
+    .rodFocusGlow{
+      position: relative;
+      z-index: 4;
+      animation: rodGlowPulse .95s ease-in-out infinite;
+      transform-origin: center center;
+      will-change: filter, transform;
+    }
+    @keyframes rodGlowPulse{
+      0%{
+        filter: drop-shadow(0 10px 16px rgba(2,6,23,.18)) drop-shadow(0 0 0 rgba(34,197,94,0));
+        transform: scale(1);
+      }
+      50%{
+        filter: drop-shadow(0 10px 16px rgba(2,6,23,.18)) drop-shadow(0 0 18px rgba(34,197,94,.95));
+        transform: scale(1.06);
+      }
+      100%{
+        filter: drop-shadow(0 10px 16px rgba(2,6,23,.18)) drop-shadow(0 0 0 rgba(34,197,94,0));
+        transform: scale(1);
+      }
+    }
     .rodBorrow{
       position:relative;
       z-index: 3;
-      transition: transform .85s ease, opacity .85s ease;
+      transition: transform 1.15s ease, opacity 1.15s ease;
       will-change: transform, opacity;
     }
     .cubeSpawn{
-      transform: scale(.2);
+      transform: scale(.18);
       opacity: 0;
-      transition: transform .35s ease, opacity .35s ease;
-      will-change: transform, opacity;
+      transition: transform .50s ease, opacity .50s ease, filter .45s ease;
+      will-change: transform, opacity, filter;
+      filter: drop-shadow(0 0 12px rgba(34,197,94,.65));
     }
     .cubeSpawn.in{
       transform: scale(1);
       opacity: 1;
+    }
+    .cubeFresh{
+      filter: drop-shadow(0 0 14px rgba(34,197,94,.78));
     }
 
     .dock{
@@ -676,8 +717,8 @@
       <div class="field">
         <label>Set the two numbers (1–99)</label>
         <div class="numRow">
-          <input class="setNum" id="setLeft" type="number" min="1" max="99" step="1" value="73">
-          <input class="setNum" id="setRight" type="number" min="1" max="99" step="1" value="64">
+          <input class="setNum" id="setLeft" type="password" inputmode="numeric" maxlength="2" autocomplete="off" value="73" aria-label="Left number">
+          <input class="setNum" id="setRight" type="password" inputmode="numeric" maxlength="2" autocomplete="off" value="64" aria-label="Right number">
           <button class="btn" id="applyBtn">Apply</button>
           <button class="btn" id="randomBtn">Random</button>
         </div>
@@ -694,10 +735,18 @@
 
       <div class="field">
         <div class="toggleRow">
-          <span>Show: Ones only (else Tens + Ones)</span>
-          <input class="switch" id="onesOnly" type="checkbox">
+          <span>Show Question</span>
+          <input class="switch" id="showQuestion" type="checkbox">
         </div>
-        <div class="help">Auto-fit keeps ALL blocks visible in both modes.</div>
+        <div class="help">Turn on to reveal the red and blue cube numbers in the question blanks.</div>
+      </div>
+
+      <div class="field">
+        <div class="toggleRow">
+          <span>Show Place Values</span>
+          <input class="switch" id="showPV" type="checkbox">
+        </div>
+        <div class="help">Turn on to reveal the tens and ones numbers in the place-value boxes.</div>
       </div>
 
       <div class="field">
@@ -715,6 +764,7 @@
   </aside>
 
   <script>
+    // v4: reveal values + 5-by-2 ten blocks; fresh filename to avoid cached older downloads.
     const BASE_W = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--baseW')) || 980;
     const BASE_H = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--baseH')) || 690;
     const stage = document.getElementById('stage');
@@ -778,7 +828,14 @@
     const teacherClear = document.getElementById('teacherClear');
 
     const qMore = document.getElementById('qMore');
-    const onesOnly = document.getElementById('onesOnly');
+    const showQuestionToggle = document.getElementById('showQuestion');
+    const showPVToggle = document.getElementById('showPV');
+
+    function syncTeacherToggleUI(){
+      if (showQuestionToggle) showQuestionToggle.checked = showQuestionNumbers;
+      if (showPVToggle) showPVToggle.checked = showPlaceValueNumbers;
+      if (qMore) qMore.checked = (questionMode === 'more');
+    }
 
     const openSettings = document.getElementById('openSettings');
     const openSettings2 = document.getElementById('openSettings2');
@@ -787,9 +844,12 @@
     let leftNum = 73;
     let rightNum = 64;
     let questionMode = 'fewer';
-    let showOnesOnly = false;
+    let showOnesOnly = false; // kept false: the teacher option has been removed
+    let showQuestionNumbers = showQuestionToggle ? showQuestionToggle.checked : false;
+    let showPlaceValueNumbers = showPVToggle ? showPVToggle.checked : false;
     let hasChecked = false;
     let animBusy = false;
+    let visualRegroupShown = false; // once correct visual regroup is shown, Check will not regroup again
 
     const ROD_ASPECT = 206.0 / 39.18;
     const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
@@ -797,7 +857,7 @@
     // force blocks smaller even when there is space
     const FIT_SHRINK = 0.85;
     const MAX_CUBE = 20;
-    const MAX_ROD_W = 16;
+    const MAX_ROD_W = 18;
 
     /* ✅ LOUDER swoosh sound (WebAudio) */
     let _ac = null;
@@ -842,6 +902,115 @@
       }
     }
 
+
+
+    function clapSound(){
+      try{
+        const ac = audioCtx();
+        if (ac.state === 'suspended') ac.resume();
+
+        // A short synthetic clapping sequence made from filtered noise bursts.
+        const makeClap = (offset, vol=0.42)=>{
+          const dur = 0.075;
+          const t0 = ac.currentTime + offset;
+          const bufferSize = Math.floor(ac.sampleRate * dur);
+          const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i=0; i<bufferSize; i++){
+            const fade = Math.pow(1 - i/bufferSize, 2.2);
+            data[i] = (Math.random()*2-1) * fade;
+          }
+          const noise = ac.createBufferSource();
+          noise.buffer = buffer;
+
+          const band = ac.createBiquadFilter();
+          band.type = 'bandpass';
+          band.frequency.value = 1700 + Math.random()*700;
+          band.Q.value = 0.8;
+
+          const gain = ac.createGain();
+          gain.gain.setValueAtTime(0.0001, t0);
+          gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+          noise.connect(band).connect(gain).connect(ac.destination);
+          noise.start(t0);
+          noise.stop(t0 + dur + 0.02);
+        };
+
+        [0.00,0.11,0.22,0.36,0.50,0.65,0.82,1.00].forEach((t,i)=> makeClap(t, i < 3 ? 0.46 : 0.34));
+      }catch(e){
+        // ignore if sound is blocked
+      }
+    }
+
+    function launchConfetti(){
+      const old = document.getElementById('celebrationConfetti');
+      if (old) old.remove();
+
+      const canvas = document.createElement('canvas');
+      canvas.id = 'celebrationConfetti';
+      canvas.style.position = 'fixed';
+      canvas.style.inset = '0';
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      canvas.style.pointerEvents = 'none';
+      canvas.style.zIndex = '9999';
+      document.body.appendChild(canvas);
+
+      const ctx = canvas.getContext('2d');
+      const colours = ['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899'];
+      const resize = ()=>{
+        canvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+        canvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+        ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+      };
+      resize();
+
+      const pieces = Array.from({length:150}, (_,i)=>({
+        x: Math.random() * window.innerWidth,
+        y: -20 - Math.random() * window.innerHeight * 0.35,
+        w: 7 + Math.random()*7,
+        h: 9 + Math.random()*12,
+        vx: -2.2 + Math.random()*4.4,
+        vy: 3.2 + Math.random()*4.8,
+        spin: -0.25 + Math.random()*0.5,
+        angle: Math.random()*Math.PI*2,
+        colour: colours[i % colours.length]
+      }));
+
+      const start = performance.now();
+      function draw(now){
+        const elapsed = now - start;
+        ctx.clearRect(0,0,window.innerWidth,window.innerHeight);
+        pieces.forEach(p=>{
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.035;
+          p.angle += p.spin;
+          ctx.save();
+          ctx.translate(p.x,p.y);
+          ctx.rotate(p.angle);
+          ctx.fillStyle = p.colour;
+          ctx.globalAlpha = Math.max(0, 1 - elapsed/2600);
+          ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+          ctx.restore();
+        });
+        if (elapsed < 2700){
+          requestAnimationFrame(draw);
+        } else {
+          canvas.remove();
+        }
+      }
+      window.addEventListener('resize', resize, {once:true});
+      requestAnimationFrame(draw);
+    }
+
+    function celebrateCorrect(){
+      clapSound();
+      launchConfetti();
+    }
+
     function clamp1to99(n){
       n = Number(n);
       if (!Number.isFinite(n)) return 1;
@@ -867,6 +1036,48 @@
       [L_tVal,L_oVal,R_tVal,R_oVal].forEach(b=>b.classList.remove('good','bad'));
       [qRed,qBlue,eqA,eqB,eqC,document.getElementById('ans')].forEach(i=> i && i.classList.remove('good','bad'));
       msg.textContent = '';
+    }
+
+    function revealInput(inp, value, shouldReveal){
+      if (!inp) return;
+      if (shouldReveal){
+        inp.value = String(value);
+        inp.readOnly = true;
+        inp.tabIndex = -1;
+        inp.classList.add('answerShown');
+        inp.classList.remove('good','bad');
+      } else {
+        inp.readOnly = false;
+        inp.tabIndex = 0;
+        inp.classList.remove('answerShown');
+      }
+    }
+
+    function revealPV(box, inp, value, shouldReveal){
+      revealInput(inp, value, shouldReveal);
+      if (box){
+        box.classList.toggle('answerShown', shouldReveal);
+        box.classList.remove('good','bad');
+      }
+    }
+
+    function applyVisibilityOptions(){
+      const L = splitTensOnes(leftNum);
+      const R = splitTensOnes(rightNum);
+
+      revealInput(qRed, leftNum, showQuestionNumbers);
+      revealInput(qBlue, rightNum, showQuestionNumbers);
+
+      revealPV(L_tVal, L_tIn, L.tens, showPlaceValueNumbers);
+      revealPV(L_oVal, L_oIn, L.ones, showPlaceValueNumbers);
+      revealPV(R_tVal, R_tIn, R.tens, showPlaceValueNumbers);
+      revealPV(R_oVal, R_oIn, R.ones, showPlaceValueNumbers);
+
+      syncTeacherToggleUI();
+      requestAnimationFrame(()=> {
+        fitStage();
+        autoFitAll();
+      });
     }
 
     function cloneCube(){
@@ -940,7 +1151,7 @@
         tensEl.style.display = 'none';
         for (let i=0; i<n; i++) onesEl.appendChild(cloneCube());
       } else {
-        tensEl.style.display = 'flex';
+        tensEl.style.display = 'grid';
         const {tens, ones} = splitTensOnes(n);
         for (let i=0; i<tens; i++) tensEl.appendChild(cloneRod());
         for (let i=0; i<ones; i++) onesEl.appendChild(cloneCube());
@@ -967,6 +1178,7 @@
         const maxTens = Math.max(splitTensOnes(leftNum).tens, splitTensOnes(rightNum).tens);
         const rodCols = Math.max(1, Math.min(5, maxTens));
         const rodRows = Math.max(1, Math.ceil(maxTens / rodCols));
+        document.documentElement.style.setProperty('--rodCols', String(rodCols));
 
         const minW = Math.min(...tensBoxes.map(b => b.clientWidth));
         const minH = Math.min(...tensBoxes.map(b => b.clientHeight));
@@ -984,17 +1196,20 @@
         document.documentElement.style.setProperty('--gap', gap + 'px');
       }
 
-      const maxOnesCount = showOnesOnly
+      const visibleOnesNow = onesBoxes.length ? Math.max(...onesBoxes.map(b => b.children.length)) : 0;
+      const baseOnesCount = showOnesOnly
         ? Math.max(leftNum, rightNum)
         : Math.max(splitTensOnes(leftNum).ones, splitTensOnes(rightNum).ones);
+      const maxOnesCount = Math.max(baseOnesCount, visibleOnesNow);
 
       const rows = Math.max(1, Math.ceil(maxOnesCount / onesCols));
+      const fitRows = Math.min(rows, 3); // keep cubes readable; if more rows are needed, the ones mat scrolls
 
       const minW1 = Math.min(...onesBoxes.map(b => b.clientWidth));
       const minH1 = Math.min(...onesBoxes.map(b => b.clientHeight));
 
       const sByWidth  = (minW1 - gap*(onesCols-1)) / onesCols;
-      const sByHeight = (minH1 - gap*(rows-1)) / rows;
+      const sByHeight = (minH1 - gap*(fitRows-1)) / fitRows;
 
       let cubeS = Math.floor(Math.max(9, Math.min(sByWidth, sByHeight) * FIT_SHRINK));
       cubeS = Math.min(MAX_CUBE, cubeS);
@@ -1003,54 +1218,91 @@
       document.documentElement.style.setProperty('--gap', gap + 'px');
     }
 
+    function scrollOnesIfNeeded(el){
+      if (!el) return;
+      requestAnimationFrame(()=>{
+        if (el.scrollHeight > el.clientHeight + 2){
+          el.scrollTop = el.scrollHeight;
+        }
+      });
+    }
+
+    function restoreOriginalBlocks(){
+      renderSide(leftNum,  L_tens, L_ones);
+      renderSide(rightNum, R_tens, R_ones);
+      requestAnimationFrame(()=> autoFitAll());
+    }
+
     function clearInputsOnly(){
       hasChecked = false;
       animBusy = false;
+      visualRegroupShown = false;
       clearMarks();
+      restoreOriginalBlocks();
       [qRed,qBlue,eqA,eqB,eqC,L_tIn,L_oIn,R_tIn,R_oIn].forEach(i=> i.value='');
       const a = document.getElementById('ans'); if (a) a.value='';
       [...L_ones.children, ...R_ones.children, ...L_tens.children, ...R_tens.children].forEach(el=> el.classList.remove('diffGrey'));
+      applyVisibilityOptions();
     }
 
     function renderAll(){
+      syncTeacherToggleUI();
       setQuestionText();
       renderSide(leftNum,  L_tens, L_ones);
       renderSide(rightNum, R_tens, R_ones);
+      clearInputsOnly();
+      applyVisibilityOptions();
 
       requestAnimationFrame(()=> {
         autoFitAll();
         renderSide(leftNum,  L_tens, L_ones);
         renderSide(rightNum, R_tens, R_ones);
+        applyVisibilityOptions();
       });
-
-      clearInputsOnly();
     }
 
     function validateCounts(){
-      const qr = sanitizeDigits(qRed.value, 2);
-      const qb = sanitizeDigits(qBlue.value, 2);
-      const okR = qr !== '' && Number(qr) === leftNum;
-      const okB = qb !== '' && Number(qb) === rightNum;
-      markInp(qRed, okR);
-      markInp(qBlue, okB);
+      let okR = true;
+      let okB = true;
 
-      const L = splitTensOnes(leftNum);
-      const R = splitTensOnes(rightNum);
+      if (!showQuestionNumbers){
+        const qr = sanitizeDigits(qRed.value, 2);
+        const qb = sanitizeDigits(qBlue.value, 2);
+        okR = qr !== '' && Number(qr) === leftNum;
+        okB = qb !== '' && Number(qb) === rightNum;
+        markInp(qRed, okR);
+        markInp(qBlue, okB);
+      } else {
+        qRed.classList.remove('good','bad');
+        qBlue.classList.remove('good','bad');
+      }
 
-      const lt = sanitizeDigits(L_tIn.value, 1);
-      const lo = sanitizeDigits(L_oIn.value, 1);
-      const rt = sanitizeDigits(R_tIn.value, 1);
-      const ro = sanitizeDigits(R_oIn.value, 1);
+      let okLT = true;
+      let okLO = true;
+      let okRT = true;
+      let okRO = true;
 
-      const okLT = lt !== '' && Number(lt) === L.tens;
-      const okLO = lo !== '' && Number(lo) === L.ones;
-      const okRT = rt !== '' && Number(rt) === R.tens;
-      const okRO = ro !== '' && Number(ro) === R.ones;
+      if (!showPlaceValueNumbers){
+        const L = splitTensOnes(leftNum);
+        const R = splitTensOnes(rightNum);
 
-      markBox(L_tVal, okLT);
-      markBox(L_oVal, okLO);
-      markBox(R_tVal, okRT);
-      markBox(R_oVal, okRO);
+        const lt = sanitizeDigits(L_tIn.value, 1);
+        const lo = sanitizeDigits(L_oIn.value, 1);
+        const rt = sanitizeDigits(R_tIn.value, 1);
+        const ro = sanitizeDigits(R_oIn.value, 1);
+
+        okLT = lt !== '' && Number(lt) === L.tens;
+        okLO = lo !== '' && Number(lo) === L.ones;
+        okRT = rt !== '' && Number(rt) === R.tens;
+        okRO = ro !== '' && Number(ro) === R.ones;
+
+        markBox(L_tVal, okLT);
+        markBox(L_oVal, okLO);
+        markBox(R_tVal, okRT);
+        markBox(R_oVal, okRO);
+      } else {
+        [L_tVal,L_oVal,R_tVal,R_oVal].forEach(b=>b.classList.remove('good','bad'));
+      }
 
       return okR && okB && okLT && okLO && okRT && okRO;
     }
@@ -1110,61 +1362,88 @@
         const rod = rods[rods.length-1];
         if (!rod) break;
 
+        msg.textContent = 'Watch closely: 1 ten will be regrouped into 10 ones.';
+        rod.classList.add('rodFocusGlow');
+        await sleep(850);
+        rod.classList.remove('rodFocusGlow');
         rod.classList.add('rodBorrow');
 
         const r1 = rod.getBoundingClientRect();
         const r2 = onesEl.getBoundingClientRect();
-        const dx = (r2.left + r2.width*0.75) - (r1.left + r1.width*0.5);
-        const dy = (r2.top + r2.height*0.55) - (r1.top + r1.height*0.6);
+        const dx = (r2.left + r2.width*0.72) - (r1.left + r1.width*0.5);
+        const dy = (r2.top + r2.height*0.50) - (r1.top + r1.height*0.6);
 
-        /* ✅ louder swoosh when ten moves */
-        whoosh({dur:0.48, from:1200, to:240, vol:0.34});
+        whoosh({dur:0.58, from:1200, to:220, vol:0.34});
 
-        rod.style.transform = `translate(${dx}px, ${dy}px) scale(.85)`;
-        rod.style.opacity = '0.20';
-        await sleep(920);
+        rod.style.transform = `translate(${dx}px, ${dy}px) scale(.80)`;
+        rod.style.opacity = '0.14';
+        await sleep(1280);
 
         rod.remove();
         tens -= 1;
 
-        /* ✅ louder swoosh when cubes appear */
-        whoosh({dur:0.60, from:950, to:140, vol:0.36});
+        msg.textContent = 'Now the 1 ten is becoming 10 ones.';
+        whoosh({dur:0.75, from:950, to:140, vol:0.36});
 
+        const newCubes = [];
         for (let i=0; i<10; i++){
           const c = cloneCube();
-          c.classList.add('cubeSpawn');
+          c.classList.add('cubeSpawn','cubeFresh');
           onesEl.appendChild(c);
+          newCubes.push(c);
           requestAnimationFrame(()=> c.classList.add('in'));
-          await sleep(65);
+          await sleep(i === 4 ? 180 : 115);
         }
         ones += 10;
 
         autoFitAll();
-        await sleep(180);
+        scrollOnesIfNeeded(onesEl);
+        await sleep(260);
+        newCubes.forEach(c => c.classList.remove('cubeFresh'));
+        msg.textContent = '1 ten = 10 ones. Now compare the extra cubes.';
+        await sleep(260);
       }
 
       const kids = [...onesEl.children];
       for (let i=kids.length-1, k=0; i>=0 && k<diff; i--, k++){
         kids[i].classList.add('diffGrey');
-        await sleep(30);
+        await sleep(42);
       }
+      scrollOnesIfNeeded(onesEl);
     }
 
     async function checkAnswers(){
       if (animBusy) return;
       clearMarks();
-      clearGrey();
       hasChecked = true;
 
       const okCounts = validateCounts();
       const okEq = validateEquation();
       const allOk = okCounts && okEq;
 
+      if (!allOk){
+        if (!visualRegroupShown) clearGrey();
+        msg.textContent = 'Try again (question numbers / tens / ones / subtraction).';
+        return;
+      }
+
+      if (visualRegroupShown){
+        msg.textContent = '✅ Already checked. The regrouping is already shown correctly.';
+        const {bigIsLeft} = expectedEquation();
+        scrollOnesIfNeeded(bigIsLeft ? L_ones : R_ones);
+        return;
+      }
+
+      clearGrey();
       animBusy = true;
-      try{ await animateRegroupThenGrey(); }
+      try{
+        await animateRegroupThenGrey();
+        visualRegroupShown = true;
+      }
       finally{ animBusy = false; }
 
-      msg.textContent = allOk ? '✅ Well done!' : 'Try again (numbers / tens / ones / subtraction).';
+      msg.textContent = '✅ Well done!';
+      celebrateCorrect();
     }
 
     function applyNumbers(){
@@ -1201,13 +1480,25 @@
       });
     });
 
+    [setLeft,setRight].forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        const cleaned = sanitizeDigits(inp.value, 2);
+        if (inp.value !== cleaned) inp.value = cleaned;
+      });
+    });
+
     qMore.addEventListener('change', ()=>{
       questionMode = qMore.checked ? 'more' : 'fewer';
       renderAll();
     });
-    onesOnly.addEventListener('change', ()=>{
-      showOnesOnly = onesOnly.checked;
-      renderAll();
+    showQuestionToggle.addEventListener('change', ()=>{
+      showQuestionNumbers = showQuestionToggle.checked;
+      clearInputsOnly();
+    });
+
+    showPVToggle.addEventListener('change', ()=>{
+      showPlaceValueNumbers = showPVToggle.checked;
+      clearInputsOnly();
     });
 
     applyBtn.addEventListener('click', applyNumbers);
